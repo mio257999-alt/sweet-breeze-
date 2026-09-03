@@ -299,6 +299,213 @@ def edit_manga_metadata(manga_id: int, editor_email: str, is_bad_edit: bool = Fa
             }
             
     return {"message": "Manga metadata updated successfully."}
+# ==========================================
+# MANGADEX-STYLE 4 SUBMISSION & HISTORY FEATURES
+# ==========================================
+
+APPROVED_EDITORS = set(["mio257999@gmail.com"])
+EDITOR_APPLICATIONS = []
+
+APPROVED_GROUPS = set()
+GROUP_REQUESTS = []
+
+MANGA_REQUESTS = []
+
+REPORTS = []
+
+# --- 1. EDITOR APPLICATIONS ---
+@app.post("/api/editor/apply")
+def apply_to_be_editor(email: str, sample_work_link: str, note: str):
+    if not email or email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You must be logged in.")
+    for app_item in EDITOR_APPLICATIONS:
+        if app_item["email"] == email and app_item["status"] == "pending":
+            raise HTTPException(status_code=400, detail="You already have a pending application.")
+    application = {
+        "id": len(EDITOR_APPLICATIONS) + 1,
+        "email": email,
+        "sample_work_link": sample_work_link,
+        "note": note,
+        "status": "pending",
+        "admin_note": ""
+    }
+    EDITOR_APPLICATIONS.append(application)
+    return {"message": "Editor application submitted successfully!"}
+
+@app.get("/api/user/editor-applications")
+def get_my_editor_applications(email: str):
+    if not email:
+        raise HTTPException(status_code=401, detail="You must be logged in.")
+    return [app for app in EDITOR_APPLICATIONS if app["email"] == email]
+
+@app.get("/api/admin/editor-applications")
+def get_admin_editor_applications(admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    return EDITOR_APPLICATIONS
+
+@app.post("/api/admin/review-editor")
+def review_editor_application(app_id: int, status: str, admin_note: str, admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    for app_item in EDITOR_APPLICATIONS:
+        if app_item["id"] == app_id:
+            app_item["status"] = status
+            app_item["admin_note"] = admin_note
+            if status == "approved":
+                APPROVED_EDITORS.add(app_item["email"])
+                EDIT_PRIVILEGES.add(app_item["email"])
+            return {"message": f"Application {status} successfully."}
+    raise HTTPException(status_code=404, detail="Application not found.")
+
+
+# --- 2. SCANLATION GROUPS ("My Groups" & public "Groups") ---
+@app.post("/api/groups/request")
+def request_scanlation_group(group_name: str, description: str, submitter_email: str):
+    if not submitter_email or submitter_email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You must be logged in.")
+    for req in GROUP_REQUESTS:
+        if req["submitter_email"] == submitter_email and req["status"] == "pending":
+            raise HTTPException(status_code=400, detail="You already have a pending group request.")
+    group_request = {
+        "id": len(GROUP_REQUESTS) + 1,
+        "group_name": group_name,
+        "description": description,
+        "submitter_email": submitter_email,
+        "status": "pending",
+        "admin_note": ""
+    }
+    GROUP_REQUESTS.append(group_request)
+    return {"message": "Group request submitted successfully!"}
+
+@app.get("/api/user/my-groups")
+def get_my_groups(email: str):
+    if not email:
+        raise HTTPException(status_code=401, detail="You must be logged in.")
+    return [req for req in GROUP_REQUESTS if req["submitter_email"] == email]
+
+@app.get("/api/groups/public-list")
+def get_public_groups():
+    return [req for req in GROUP_REQUESTS if req["status"] == "approved"]
+
+@app.get("/api/admin/group-requests")
+def get_admin_group_requests(admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    return GROUP_REQUESTS
+
+@app.post("/api/admin/review-group")
+def review_group_request(request_id: int, status: str, admin_note: str, admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    for req in GROUP_REQUESTS:
+        if req["id"] == request_id:
+            req["status"] = status
+            req["admin_note"] = admin_note
+            if status == "approved":
+                APPROVED_GROUPS.add(req["group_name"])
+            return {"message": f"Group request {status} successfully."}
+    raise HTTPException(status_code=404, detail="Group request not found.")
+
+
+# --- 3. ENHANCED MANGA TITLE DRAFT & SUBMISSION HISTORY ---
+@app.post("/api/manga/request-title-draft")
+def request_title_draft(
+    title: str,
+    alternative_titles: str = "",
+    synopsis: str = "",
+    authors: str = "",
+    original_language: str = "",
+    content_rating: str = "",
+    publication_status: str = "",
+    genres: str = "",
+    themes: str = "",
+    submitter_email: str = ""
+):
+    if not submitter_email or submitter_email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You must be logged in to submit a title draft.")
+    
+    draft_entry = {
+        "id": len(MANGA_REQUESTS) + 1,
+        "title": title,
+        "alternative_titles": alternative_titles,
+        "synopsis": synopsis,
+        "authors": authors,
+        "original_language": original_language,
+        "content_rating": content_rating,
+        "publication_status": publication_status,
+        "genres": genres,
+        "themes": themes,
+        "submitter_email": submitter_email,
+        "status": "pending",
+        "admin_note": ""
+    }
+    MANGA_REQUESTS.append(draft_entry)
+    return {"message": "Title draft submitted successfully! You can track its status in your submission history."}
+
+@app.get("/api/user/title-submissions")
+def get_my_title_submissions(email: str):
+    if not email:
+        raise HTTPException(status_code=401, detail="You must be logged in.")
+    return [t for t in MANGA_REQUESTS if t["submitter_email"] == email]
+
+@app.get("/api/admin/manga-requests")
+def get_admin_manga_requests(admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    return MANGA_REQUESTS
+
+@app.post("/api/admin/review-manga-request")
+def review_manga_request(request_id: int, status: str, admin_note: str, admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    for t in MANGA_REQUESTS:
+        if t["id"] == request_id:
+            t["status"] = status
+            t["admin_note"] = admin_note
+            return {"message": f"Title request {status} successfully."}
+    raise HTTPException(status_code=404, detail="Title request not found.")
+
+
+# --- 4. REPORTS ("My Reports" Tracker) ---
+@app.post("/api/reports/submit")
+def submit_report(reporter_email: str, target_type: str, target_id: int, reason: str):
+    if not reporter_email or reporter_email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You must be logged in.")
+    report = {
+        "id": len(REPORTS) + 1,
+        "reporter_email": reporter_email,
+        "target_type": target_type,
+        "target_id": target_id,
+        "reason": reason,
+        "status": "pending",
+        "admin_note": ""
+    }
+    REPORTS.append(report)
+    return {"message": "Report submitted successfully."}
+
+@app.get("/api/user/my-reports")
+def get_my_reports(email: str):
+    if not email:
+        raise HTTPException(status_code=401, detail="You must be logged in.")
+    return [r for r in REPORTS if r["reporter_email"] == email]
+
+@app.get("/api/admin/reports")
+def get_admin_reports(admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    return REPORTS
+
+@app.post("/api/admin/review-report")
+def review_report(report_id: int, status: str, admin_note: str, admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    for r in REPORTS:
+        if r["id"] == report_id:
+            r["status"] = status
+            r["admin_note"] = admin_note
+            return {"message": f"Report {status} successfully."}
+    raise HTTPException(status_code=404, detail="Report not found.")
 
 
 
