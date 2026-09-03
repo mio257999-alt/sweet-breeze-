@@ -1,11 +1,24 @@
 import enum  
 from typing import List, Optional  
+from fastapi.middleware.cors import CORSMiddleware
+
 from fastapi import FastAPI, Depends, Query, HTTPException  
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, Text, Enum  
 from sqlalchemy.orm import declarative_base, sessionmaker, Session  
   
 DATABASE_URL = "sqlite:///./sweet_breeze.db"  
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})  
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)  
 Base = declarative_base()  
   
