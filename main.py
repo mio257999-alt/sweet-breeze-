@@ -506,6 +506,52 @@ def review_report(report_id: int, status: str, admin_note: str, admin_email: str
             r["admin_note"] = admin_note
             return {"message": f"Report {status} successfully."}
     raise HTTPException(status_code=404, detail="Report not found.")
+# ==========================================
+# CHAPTER TRACKER & PROGRESS (Checkmarks, Continue Button, Mark All Read)
+# ==========================================
+
+# Stores read chapters as: { "email_mangaid": [1.0, 2.0, 3.0] }
+CHAPTER_PROGRESS = {}
+
+@app.get("/api/user/chapter-progress")
+def get_chapter_progress(email: str, manga_id: int):
+    if not email:
+        raise HTTPException(status_code=401, detail="You must be logged in.")
+    key = f"{email}_{manga_id}"
+    return {"read_chapters": CHAPTER_PROGRESS.get(key, [])}
+
+@app.post("/api/user/toggle-chapter")
+def toggle_chapter_read(email: str, manga_id: int, chapter_number: float, mark_read: bool):
+    if not email or email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You must be logged in.")
+    key = f"{email}_{manga_id}"
+    if key not in CHAPTER_PROGRESS:
+        CHAPTER_PROGRESS[key] = []
+        
+    if mark_read and chapter_number not in CHAPTER_PROGRESS[key]:
+        CHAPTER_PROGRESS[key].append(chapter_number)
+    elif not mark_read and chapter_number in CHAPTER_PROGRESS[key]:
+        CHAPTER_PROGRESS[key].remove(chapter_number)
+        
+    return {"message": "Chapter progress updated."}
+
+@app.post("/api/user/mark-all-read")
+def mark_all_read(email: str, manga_id: int, chapters: str):
+    # Pass comma-separated chapter numbers e.g. "1,2,3,4"
+    if not email or email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You must be logged in.")
+    key = f"{email}_{manga_id}"
+    chapter_list = [float(c.strip()) for c in chapters.split(",") if c.strip()]
+    CHAPTER_PROGRESS[key] = chapter_list
+    return {"message": "All chapters marked as read."}
+
+@app.post("/api/user/clear-progress")
+def clear_progress(email: str, manga_id: int):
+    if not email:
+        raise HTTPException(status_code=401, detail="You must be logged in.")
+    key = f"{email}_{manga_id}"
+    CHAPTER_PROGRESS[key] = []
+    return {"message": "Reading progress cleared."}
 
 
 
