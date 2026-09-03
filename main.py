@@ -84,3 +84,33 @@ def report_comment(comment_id: int, reason: str, agree_rules: bool):
     if not agree_rules:  
         raise HTTPException(status_code=400, detail="Must agree to community rules before reporting.")  
     return {"status": "success", "message": "Report logged for moderation review."}  
+  from pydantic import BaseModel
+
+class MangaCreate(BaseModel):
+    title: str
+    author: Optional[str] = None
+    cover_image: Optional[str] = None
+    rating: Optional[ContentRating] = ContentRating.SAFE
+    genres: Optional[str] = None
+    themes: Optional[str] = None
+    warnings: Optional[str] = None
+
+@app.post("/api/manga")
+def create_manga(manga: MangaCreate, db: Session = Depends(get_db)):
+    db_manga = Manga(
+        title=manga.title,
+        author=manga.author,
+        cover_image=manga.cover_image,
+        rating=manga.rating,
+        genres=manga.genres,
+        themes=manga.themes,
+        warnings=manga.warnings
+    )
+    db.add(db_manga)
+    db.commit()
+    db.refresh(db_manga)
+    return db_manga
+
+
+
+  
