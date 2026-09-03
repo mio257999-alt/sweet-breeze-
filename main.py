@@ -110,6 +110,10 @@ def create_manga(manga: MangaCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_manga)
     return db_manga
+  @app.get("/api/manga")
+def get_all_manga(db: Session = Depends(get_db)):
+    return db.query(Manga).all()
+
 
 
 
