@@ -6,6 +6,26 @@ const THEMES = ["Aliens", "Animals", "Cooking", "Crossdressing", "Delinquents", 
 const WARNINGS = ["Gore", "Sexual Violence"];
 
 export default function SweetBreezeApp() {
+    const [adminEmail, setAdminEmail] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const handleAdminLogin = async () => {
+    try {
+      const response = await fetch(`https://sweet-breeze-2.onrender.com/api/admin-login?email=${encodeURIComponent(adminEmail)}`, {
+        method: "POST"
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setIsAdmin(true);
+        alert(data.message);
+      } else {
+        alert(data.detail);
+      }
+    } catch (err) {
+      alert("Login failed");
+    }
+  };
+
   const [mangas, setMangas] = useState([]);
 
   useEffect(() => {
@@ -17,6 +37,8 @@ export default function SweetBreezeApp() {
 
   const [activeTab, setActiveTab] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
+    const [adminEmail, setAdminEmail] = useState("");
+
   const [selectedRatings, setSelectedRatings] = useState(['Safe']);
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -39,6 +61,20 @@ export default function SweetBreezeApp() {
             <a onClick={() => setActiveTab('favorites')} className="hover:text-[#E50914] cursor-pointer transition">Favorites</a>
           </nav>
         </div>
+  {!isAdmin ? (
+    <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
+      <input 
+        type="email" 
+        placeholder="Admin email..." 
+        value={adminEmail} 
+        onChange={(e) => setAdminEmail(e.target.value)} 
+        style={{ padding: "4px 8px", borderRadius: "4px", border: "1px solid #444", background: "#111", color: "#fff", fontSize: "12px" }}
+      />
+      <button onClick={handleAdminLogin} style={{ padding: "4px 10px", borderRadius: "4px", background: "#e50914", color: "#fff", border: "none", cursor: "pointer", fontSize: "12px" }}>Login</button>
+    </div>
+  ) : (
+    <span style={{ color: "lightgreen", fontSize: "14px", fontWeight: "bold" }}>🔓 Admin</span>
+  )}
 
         <div className="relative flex-1 max-w-md mx-6">
           <Search className="absolute left-3 top-2.5 text-gray-400 h-4 w-4" />
