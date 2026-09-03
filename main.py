@@ -203,6 +203,102 @@ def get_reports(admin_email: str):
     if admin_email != "mio257999@gmail.com":
         raise HTTPException(status_code=403, detail="Unauthorized action")
     return REPORTED_ITEMS
+# Editor Applications, Permissions & Title Request State
+APPROVED_EDITORS = set(["mio257999@gmail.com"])
+EDITOR_APPLICATIONS = []
+MANGA_REQUESTS = []
+
+@app.post("/api/editor/apply")
+def apply_to_be_editor(email: str, sample_work_link: str, note: str):
+    if not email:
+        raise HTTPException(status_code=401, detail="You must be logged in.")
+    
+    # Check if they already have a pending application
+    for app_item in EDITOR_APPLICATIONS:
+        if app_item["email"] == email and app_item["status"] == "pending":
+            raise HTTPException(status_code=400, detail="You already have a pending application.")
+            
+    application = {
+        "id": len(EDITOR_APPLICATIONS) + 1,
+        "email": email,
+        "sample_work_link": sample_work_link,
+        "note": note,
+        "status": "pending"
+    }
+    EDITOR_APPLICATIONS.append(application)
+    return {"message": "Application submitted successfully! You can track its status on your profile."}
+
+@app.get("/api/editor/my-status")
+def check_my_application_status(email: str):
+    user_apps = [app for app in EDITOR_APPLICATIONS if app["email"] == email]
+    if not user_apps:
+        return {"status": "none"}
+    return user_apps[-1]
+
+@app.get("/api/admin/editor-applications")
+def get_editor_applications(admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action. Only the admin can view applications.")
+    return EDITOR_APPLICATIONS
+
+@app.post("/api/admin/review-editor")
+def review_editor_application(app_id: int, status: str, admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action.")
+    
+    for app_item in EDITOR_APPLICATIONS:
+        if app_item["id"] == app_id:
+            app_item["status"] = status
+            if status == "approved":
+                APPROVED_EDITORS.add(app_item["email"])
+            return {"message": f"Application {status} successfully."}
+            
+    raise HTTPException(status_code=404, detail="Application not found.")
+
+@app.post("/api/manga/request-title")
+def request_new_title(title: str, author: str, original_language: str, submitter_email: str):
+    if not submitter_email or submitter_email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You cannot submit title requests.")
+        
+    request_entry = {
+        "id": len(MANGA_REQUESTS) + 1,
+        "title": title,
+        "author": author,
+        "original_language": original_language,
+        "submitter_email": submitter_email,
+        "status": "pending"
+    }
+    MANGA_REQUESTS.append(request_entry)
+    return {"message": "Title request submitted to admin for review!"}
+
+@app.get("/api/admin/manga-requests")
+def get_manga_requests(admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action")
+    return MANGA_REQUESTS
+# Track bad edits to automatically strip edit privileges: { email: bad_edit_count }
+EDIT_ABUSE_TRACKER = {}
+# Users who are allowed to edit metadata (starts empty, populated when you approve them)
+EDIT_PRIVILEGES = set(["mio257999@gmail.com"])
+
+@app.post("/api/manga/edit")
+def edit_manga_metadata(manga_id: int, editor_email: str, is_bad_edit: bool = False):
+    if editor_email not in EDIT_PRIVILEGES or editor_email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="You do not have permission to edit manga metadata.")
+    
+    # If the edit is flagged as bad (wrong tags/themes/covers)
+    if is_bad_edit:
+        EDIT_ABUSE_TRACKER[editor_email] = EDIT_ABUSE_TRACKER.get(editor_email, 0) + 1
+        
+        # If they hit 4 bad edits, automatically strip their edit rights and roll back!
+        if EDIT_ABUSE_TRACKER[editor_email] >= 4:
+            if editor_email in EDIT_PRIVILEGES:
+                EDIT_PRIVILEGES.remove(editor_email)
+            return {
+                "message": "Warning: Too many incorrect edits! Your edit privileges have been automatically revoked, and the title has been rolled back."
+            }
+            
+    return {"message": "Manga metadata updated successfully."}
 
 
 
