@@ -61,7 +61,15 @@ class Comment(Base):
     dislikes = Column(Integer, default=0)  
   
 Base.metadata.create_all(bind=engine)  
-  
+  BANNED_USERS = set()
+
+@app.post("/api/ban-user")
+def ban_user(email: str, admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action")
+    BANNED_USERS.add(email)
+    return {"message": f"User {email} has been banned successfully."}
+
 app = FastAPI(title="Sweet Breeze API")  
   
 def get_db():  
