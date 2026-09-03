@@ -130,4 +130,6 @@ def get_all_manga(db: Session = Depends(get_db)):
 
 
 
+
+
   
