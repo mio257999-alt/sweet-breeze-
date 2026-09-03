@@ -6,6 +6,15 @@ const THEMES = ["Aliens", "Animals", "Cooking", "Crossdressing", "Delinquents", 
 const WARNINGS = ["Gore", "Sexual Violence"];
 
 export default function SweetBreezeApp() {
+  const [mangas, setMangas] = useState([]);
+
+  useEffect(() => {
+    fetch('https://sweet-breeze-2.onrender.com/api/manga')
+      .then(res => res.json())
+      .then(data => setMangas(data))
+      .catch(err => console.error("Error fetching data:", err));
+  }, []);
+
   const [activeTab, setActiveTab] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRatings, setSelectedRatings] = useState(['Safe']);
