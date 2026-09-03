@@ -139,6 +139,70 @@ def admin_login(email: str):
     if email == "mio257999@gmail.com":
         return {"success": True, "message": "Welcome back, Admin!"}
     raise HTTPException(status_code=403, detail="Access denied. Not an admin.")
+# Persistent state variables
+BANNED_USERS = set()
+REPORTED_ITEMS = []
+REPORT_COOLDOWNS = {}
+REPORT_LOCKOUTS = {}
+
+@app.post("/api/ban-user")
+def ban_user(email: str, admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action")
+    BANNED_USERS.add(email)
+    return {"message": f"User {email} has been banned successfully."}
+
+@app.post("/api/reports")
+def create_report(target_type: str, target_id: int, reason: str, reporter_email: str):
+    if not reporter_email:
+        raise HTTPException(status_code=401, detail="You must be logged in with an account to submit a report.")
+    
+    if reporter_email in BANNED_USERS:
+        raise HTTPException(status_code=403, detail="Banned users cannot submit reports.")
+
+    current_time = time.time()
+    
+    # Check if the user is locked out for sending an empty report
+    if reporter_email in REPORT_LOCKOUTS:
+        if current_time < REPORT_LOCKOUTS[reporter_email]:
+            remaining = int((REPORT_LOCKOUTS[reporter_email] - current_time) / 60) + 1
+            raise HTTPException(
+                status_code=403, 
+                detail=f"You are locked out for sending an empty report. Try again in {remaining} minutes."
+            )
+        else:
+            del REPORT_LOCKOUTS[reporter_email]
+
+    # The 10-minute penalty for empty, blank, or dot-only reports (600 seconds)
+    if not reason or not reason.strip() or reason.strip() == ".":
+        REPORT_LOCKOUTS[reporter_email] = current_time + 600
+        raise HTTPException(
+            status_code=403, 
+            detail="Empty reports are not allowed! You have been locked out of the site for 10 minutes."
+        )
+
+    # Anti-spam cooldown (60 seconds)
+    if reporter_email in REPORT_COOLDOWNS:
+        if current_time - REPORT_COOLDOWNS[reporter_email] < 60:
+            raise HTTPException(status_code=429, detail="Please wait a minute before submitting another report.")
+            
+    REPORT_COOLDOWNS[reporter_email] = current_time
+    
+    report = {
+        "id": len(REPORTED_ITEMS) + 1,
+        "target_type": target_type,
+        "target_id": target_id,
+        "reason": reason,
+        "reporter_email": reporter_email
+    }
+    REPORTED_ITEMS.append(report)
+    return {"message": "Report submitted successfully."}
+
+@app.get("/api/admin/reports")
+def get_reports(admin_email: str):
+    if admin_email != "mio257999@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized action")
+    return REPORTED_ITEMS
 
 
 
