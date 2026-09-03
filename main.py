@@ -126,6 +126,11 @@ def create_manga(manga: MangaCreate, db: Session = Depends(get_db)):
   @app.get("/api/manga")
 def get_all_manga(db: Session = Depends(get_db)):
     return db.query(Manga).all()
+@app.post("/api/admin-login")
+def admin_login(email: str):
+    if email == "mio257999@gmail.com":
+        return {"success": True, "message": "Welcome back, Admin!"}
+    raise HTTPException(status_code=403, detail="Access denied. Not an admin.")
 
 
 
